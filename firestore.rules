@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared hardened primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation helpers
+    function isValidJournalEntry(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 140 &&
+             data.content is string &&
+             data.content.size() >= 1 &&
+             data.content.size() <= 20000 &&
+             data.mood in ['CALM', 'GRATEFUL', 'FOCUSED', 'REFLECTIVE', 'ENERGIZED', 'TIRED'] &&
+             data.tags is list &&
+             data.tags.size() <= 10 &&
+             (data.tags.size() == 0 || (data.tags[0] is string && data.tags[0].size() <= 32)) &&
+             data.pinned is bool &&
+             data.totalSocialMinutes is int &&
+             data.totalSocialMinutes >= 0 &&
+             data.totalSocialMinutes <= 1440 &&
+             (!('sharedUrl' in data) || (data.sharedUrl is string && data.sharedUrl.size() <= 1000)) &&
+             (!('sharedPlatform' in data) || (data.sharedPlatform is string && data.sharedPlatform.size() <= 40)) &&
+             (!('sharedSummary' in data) || (data.sharedSummary is string && data.sharedSummary.size() <= 500)) &&
+             (!('socialSnapshotSummary' in data) || (data.socialSnapshotSummary is string && data.socialSnapshotSummary.size() <= 300));
+    }
+
+    function isValidSocialSnapshot(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.sourceType in ['USAGE_STATS', 'YOUTUBE_API'] &&
+             data.label is string &&
+             data.label.size() >= 1 &&
+             data.label.size() <= 140 &&
+             data.totalMinutes is int &&
+             data.totalMinutes >= 0 &&
+             data.totalMinutes <= 10080 &&
+             data.subscriberCount is int &&
+             data.subscriberCount >= 0 &&
+             data.viewCount is int &&
+             data.viewCount >= 0 &&
+             data.videoCount is int &&
+             data.videoCount >= 0 &&
+             data.platformMinutes is map &&
+             data.platformMinutes.size() <= 20;
+    }
+
+    function isValidUserEntitlement(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.adFree is bool &&
+             data.planType in ['FREE', 'MONTHLY', 'LIFETIME'] &&
+             data.productId is string &&
+             data.productId.size() <= 100 &&
+             data.purchaseToken is string &&
+             data.purchaseToken.size() <= 512;
+    }
+
+    // 1. User-scoped journal entries
+    match /users/{userId}/entries/{entryId} {
+      allow get: if isOwner(userId) && isValidId(entryId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(entryId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'title', 'content', 'mood', 'tags', 'pinned',
+                         'totalSocialMinutes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'title', 'content', 'mood', 'tags', 'pinned',
+                         'sharedUrl', 'sharedPlatform', 'sharedSummary',
+                         'socialSnapshotSummary', 'totalSocialMinutes',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidJournalEntry(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(entryId) &&
+                       isValidJournalEntry(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'content', 'mood', 'tags', 'pinned',
+                         'sharedUrl', 'sharedPlatform', 'sharedSummary',
+                         'socialSnapshotSummary', 'totalSocialMinutes',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(entryId);
+    }
+
+    // 2. User-scoped social telemetry snapshots (UsageStats & YouTube API)
+    match /users/{userId}/socialSnapshots/{snapshotId} {
+      allow get: if isOwner(userId) && isValidId(snapshotId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(snapshotId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'sourceType', 'label', 'totalMinutes',
+                         'subscriberCount', 'viewCount', 'videoCount',
+                         'platformMinutes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'sourceType', 'label', 'totalMinutes',
+                         'subscriberCount', 'viewCount', 'videoCount',
+                         'platformMinutes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidSocialSnapshot(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(snapshotId) &&
+                       isValidSocialSnapshot(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'sourceType', 'label', 'totalMinutes',
+                         'subscriberCount', 'viewCount', 'videoCount',
+                         'platformMinutes', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(snapshotId);
+    }
+
+    // 3. User-scoped Play Billing ad-free entitlement
+    match /users/{userId}/entitlement/{docId} {
+      allow get: if isOwner(userId) && isValidId(docId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(docId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'adFree', 'planType', 'productId',
+                         'purchaseToken', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'adFree', 'planType', 'productId',
+                         'purchaseToken', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidUserEntitlement(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(docId) &&
+                       isValidUserEntitlement(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'adFree', 'planType', 'productId', 'purchaseToken', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(docId);
+    }
+  }
+}

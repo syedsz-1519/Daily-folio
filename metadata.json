@@ -1,0 +1,6 @@
+{
+  "name": "FolioNote",
+  "description": "Warm paper editorial daily journal with PIN/biometric vault lock, Google Sign-In cloud sync, real social media telemetry, and ad-free Play Billing upgrade.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

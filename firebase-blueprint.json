@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "A user-authored daily journal reflection with optional social telemetry and shared social post metadata.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID matching request.auth.uid."
+        },
+        "title": {
+          "type": "string",
+          "description": "Entry headline (1..140 characters)."
+        },
+        "content": {
+          "type": "string",
+          "description": "Full journal prose (1..20000 characters)."
+        },
+        "mood": {
+          "type": "string",
+          "enum": ["CALM", "GRATEFUL", "FOCUSED", "REFLECTIVE", "ENERGIZED", "TIRED"],
+          "description": "Selected emotional mood state."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Up to 10 short topic tags."
+        },
+        "pinned": {
+          "type": "boolean",
+          "description": "Whether the entry is pinned to the top of the journal."
+        },
+        "sharedUrl": {
+          "type": "string",
+          "description": "Optional URL captured from Android Share Sheet."
+        },
+        "sharedPlatform": {
+          "type": "string",
+          "description": "Optional source social platform label (e.g., Instagram, YouTube)."
+        },
+        "sharedSummary": {
+          "type": "string",
+          "description": "Optional shared caption or post preview text."
+        },
+        "socialSnapshotSummary": {
+          "type": "string",
+          "description": "Optional formatted summary of social usage attached to this entry."
+        },
+        "totalSocialMinutes": {
+          "type": "integer",
+          "description": "Total social screen-time minutes logged on the entry date (0..1440)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated via FieldValue.serverTimestamp() on mutation."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "content",
+        "mood",
+        "tags",
+        "pinned",
+        "totalSocialMinutes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SocialSnapshot": {
+      "title": "SocialSnapshot",
+      "description": "A synced social telemetry snapshot from Android UsageStatsManager or YouTube Data API v3.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID."
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": ["USAGE_STATS", "YOUTUBE_API"],
+          "description": "Origin of the real social telemetry record."
+        },
+        "label": {
+          "type": "string",
+          "description": "Date key or YouTube channel/video title (1..140 characters)."
+        },
+        "totalMinutes": {
+          "type": "integer",
+          "description": "Total social usage minutes for the snapshot period."
+        },
+        "subscriberCount": {
+          "type": "integer",
+          "description": "Live YouTube channel subscriber count (0 for non-YouTube snapshots)."
+        },
+        "viewCount": {
+          "type": "integer",
+          "description": "Live YouTube channel or video view count."
+        },
+        "videoCount": {
+          "type": "integer",
+          "description": "Live YouTube channel video count."
+        },
+        "platformMinutes": {
+          "type": "object",
+          "description": "Map of social platform name to minutes used."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "sourceType",
+        "label",
+        "totalMinutes",
+        "subscriberCount",
+        "viewCount",
+        "videoCount",
+        "platformMinutes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserEntitlement": {
+      "title": "UserEntitlement",
+      "description": "User's Google Play Billing ad-free premium entitlement synced to their account.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID."
+        },
+        "adFree": {
+          "type": "boolean",
+          "description": "Whether the user holds an active ad-free entitlement."
+        },
+        "planType": {
+          "type": "string",
+          "enum": ["FREE", "MONTHLY", "LIFETIME"],
+          "description": "Current plan tier."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Play Billing product identifier."
+        },
+        "purchaseToken": {
+          "type": "string",
+          "description": "Play Billing purchase token reference."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "adFree",
+        "planType",
+        "productId",
+        "purchaseToken",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/entries/{entryId}": {
+      "schema": { "$ref": "#/entities/JournalEntry" },
+      "description": "User-scoped daily journal entries."
+    },
+    "/users/{userId}/socialSnapshots/{snapshotId}": {
+      "schema": { "$ref": "#/entities/SocialSnapshot" },
+      "description": "User-scoped daily UsageStats and YouTube API snapshots."
+    },
+    "/users/{userId}/entitlement/{docId}": {
+      "schema": { "$ref": "#/entities/UserEntitlement" },
+      "description": "User-scoped Play Billing ad-free entitlement record."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">FolioNote</string>
+    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_banner_unit_id" translatable="false">ca-app-pub-3940256099942544/6300978111</string>
+    <string name="admob_interstitial_unit_id" translatable="false">ca-app-pub-3940256099942544/1033173712</string>
+    <string name="nav_journal">Journal</string>
+    <string name="nav_social">Social Pulse</string>
+    <string name="nav_settings">Vault &amp; Lab</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="unlock_vault_title">Unlock Your Journal</string>
+    <string name="go_ad_free">Go Ad-Free</string>
+</resources>
